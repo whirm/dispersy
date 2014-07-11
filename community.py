@@ -46,6 +46,9 @@ logger = get_logger(__name__)
 DOWNLOAD_MM_PK_INTERVAL = 15.0
 PERIODIC_CLEANUP_INTERVAL = 5.0
 TAKE_STEP_INTERVAL = 5
+FAST_WALK_ITERATIONS = 10
+FAST_WALK_INTERVAL = 1
+
 
 class SyncCache(object):
 
@@ -59,14 +62,18 @@ class SyncCache(object):
         self.responses_received = 0
         self.candidate = None
 
+
 class DispersyInternalMessage(object):
     pass
 
+
 class DispersyDuplicatedUndo(DispersyInternalMessage):
     name = candidate = u"_DUPLICATED_UNDO_"
+
     def __init__(self, low_message, high_message):
         self.low_message = low_message
         self.high_message = high_message
+
 
 class Community(TaskManager):
     __metaclass__ = ABCMeta
@@ -1108,10 +1115,18 @@ class Community(TaskManager):
         assert isinstance(conversion, Conversion)
         self._conversions.append(conversion)
 
-    @inlineCallbacks
     def start_walking(self):
-        if self.dispersy_enable_fast_candidate_walker:
-            for _ in xrange(10):
+        def _start_walking():
+            self.register_task("take step", LoopingCall(self.take_step)).start(TAKE_STEP_INTERVAL, now=True)
+
+        def _start_fast_walking():
+            self.register_task("fast walk", LoopingCall(fast_walk)).start(FAST_WALK_INTERVAL, now=True)
+
+        walk_iterations = FAST_WALK_ITERATIONS
+        def fast_walk():
+            if walk_iterations:
+                walk_iterations -= 1
+
                 now = time()
 
                 # count -everyone- that is active (i.e. walk or stumble)
@@ -1119,21 +1134,27 @@ class Community(TaskManager):
                 if len(active_canidates) > 20:
                     logger.debug("there are %d active non-bootstrap candidates available, "
                                  "prematurely quitting fast walker", len(active_canidates))
-                    break
+                    walk_iterations = 0
+                else:
+                    # request peers that are eligible
+                    eligible_candidates = [candidate
+                                           for candidate
+                                           in self._candidates.itervalues()
+                                           if candidate.is_eligible_for_walk(now)]
+                    for count, candidate in enumerate(eligible_candidates[:len(eligible_candidates) / 2], 1):
+                        logger.debug("%d/%d extra walk to %s", count, len(eligible_candidates), candidate)
+                        self.create_introduction_request(candidate, allow_sync=False, is_fast_walker=True)
 
-                # request peers that are eligible
-                eligible_candidates = [candidate
-                                       for candidate
-                                       in self._candidates.itervalues()
-                                       if candidate.is_eligible_for_walk(now)]
-                for count, candidate in enumerate(eligible_candidates[:len(eligible_candidates) / 2], 1):
-                    logger.debug("%d/%d extra walk to %s", count, len(eligible_candidates), candidate)
-                    self.create_introduction_request(candidate, allow_sync=False, is_fast_walker=True)
+            if not walk_iterations:
+                # We finished doing fast walk iterations, start walking normally.
+                self.cancel_pending_task("fast walk")
+                _start_walking()
 
-                # wait for NAT hole punching
-                yield deferLater(reactor, 1, lambda: None)
-
-        self.register_task("take step", LoopingCall(self.take_step)).start(TAKE_STEP_INTERVAL, now=True)
+        # We use callLaters here to unwind the stack
+        if self.dispersy_enable_fast_candidate_walker:
+            reactor.callLater(0, _start_fast_walking)
+        else:
+            reactor.callLater(0, _start_walking)
 
     # TODO(emilon): Review all the now = time() lines to see if I missed something using it to compute the time between
     # calls in any loop converted to a LoopingCall
