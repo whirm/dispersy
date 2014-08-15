@@ -147,6 +147,10 @@ class PossibleTasteBuddy(TasteBuddy):
 
 class DiscoveryCommunity(Community):
 
+    @property
+    def dispersy_enable_fast_candidate_walker(self):
+        return True
+
     def initialize(self, max_prefs=25, max_tbs=25):
         # needs to be called before super.initialize
         self.peer_cache = PeerCache(os.path.join(self._dispersy._working_directory, PEERCACHE_FILENAME), self)
