@@ -1928,6 +1928,7 @@ class Community(TaskManager):
         new_messages = defaultdict(set)
         new_packets = set()
         for received_key in received_keys:
+            self._logger.debug("Processing key %s", str(received_key))
             for key in self._delayed_key.keys():
                 if all(k is None or k == rk for k, rk in zip(key, received_key)):
                     for delayed in self._delayed_key.pop(key):
@@ -1944,6 +1945,7 @@ class Community(TaskManager):
                             else:
                                 new_packets.add(delayed.on_success())
 
+
         if new_messages:
             for new_messages_meta in new_messages.itervalues():
                 self._logger.debug("resuming %d messages", len(new_messages_meta))
@@ -1952,6 +1954,9 @@ class Community(TaskManager):
         if new_packets:
             self._logger.debug("resuming %d packets", len(new_packets))
             self.on_incoming_packets(list(new_packets), timestamp=time())
+
+        elif not new_messages:
+            self._logger.debug("Not resuming anything for %s", received_keys)
 
     def _remove_delayed(self, delayed):
         for key in self._delayed_value[delayed]:
@@ -1966,9 +1971,10 @@ class Community(TaskManager):
         for delayed in self._delayed_value.keys():
             if now > delayed.timestamp + 10:
                 self._remove_delayed(delayed)
+                self._logger.debug("Calling timeout callback for %s", delayed)
                 delayed.on_timeout()
                 self._statistics.increase_delay_msg_count(u"timeout")
-                self._statistics.increase_msg_count(u"drop", u"delay_timeout:%s" % delayed)
+                self._statistics.increase_msg_count(u"drop", u"delay_timeout:%s_%s" % (delayed, delayed.delayed.meta.name))
 
     def on_incoming_packets(self, packets, cache=True, timestamp=0.0):
         """
