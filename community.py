@@ -1893,6 +1893,7 @@ class Community(TaskManager):
         # unwrap sequence number list
         seq_number_list = match_info[3] or [None]
         for seq in seq_number_list:
+            # key consist of message-type, memberid, global_time, and finally sequence number
             unwrapped_key = (match_info[0], match_info[1], match_info[2], seq)
 
             # if we find a new key, then we need to send a request
@@ -1970,11 +1971,13 @@ class Community(TaskManager):
         now = time()
         for delayed in self._delayed_value.keys():
             if now > delayed.timestamp + 10:
-                self._remove_delayed(delayed)
                 self._logger.debug("Calling timeout callback for %s", delayed)
+
+                self._remove_delayed(delayed)
                 delayed.on_timeout()
+
                 self._statistics.increase_delay_msg_count(u"timeout")
-                self._statistics.increase_msg_count(u"drop", u"delay_timeout:%s_%s" % (delayed, delayed.delayed.meta.name))
+                self._statistics.increase_msg_count(u"drop", u"delay_timeout:%s_%s" % (delayed, delayed.meta.name))
 
     def on_incoming_packets(self, packets, cache=True, timestamp=0.0):
         """

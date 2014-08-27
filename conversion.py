@@ -80,12 +80,12 @@ class Conversion(object):
         """
         Returns True when DATA can be decoded using this conversion.
         """
-        #at least a length of 23, as we need the prefix + 1 byte messagetype
+        # at least a length of 23, as we need the prefix + 1 byte messagetype
         assert isinstance(data, str), type(data)
         assert len(data) >= 23
-        
+
         return (len(data) >= 23 and data[:22] == self._prefix)
-        
+
     @abstractmethod
     def decode_meta_message(self, data):
         """
@@ -1124,7 +1124,7 @@ class NoDefBinaryConversion(Conversion):
                 else:
                     raise DropPacket("Verification failed (_decode_member_authentication sha1)")
             else:
-                raise DelayPacketByMissingMember(self._community, member_id)
+                raise DelayPacketByMissingMember(self._community, placeholder.meta, member_id)
 
         elif encoding == "bin":
             if len(data) < offset + 2:
@@ -1168,7 +1168,7 @@ class NoDefBinaryConversion(Conversion):
                 member_id = data[offset:offset + 20]
                 member = self._community.get_member(mid=member_id)
                 if not member:
-                    raise DelayPacketByMissingMember(self._community, member_id)
+                    raise DelayPacketByMissingMember(self._community, placeholder.meta, member_id)
                 offset += 20
                 members.append(member)
 
@@ -1229,7 +1229,7 @@ class NoDefBinaryConversion(Conversion):
         assert isinstance(data, str), type(data)
         if not self.can_decode_message(data):
             raise DropPacket("Cannot decode message")
-        
+
         return self._decode_message_map[data[22]].meta
 
     @attach_runtime_statistics(u"{0.__class__.__name__}.{function_name} {return_value}")

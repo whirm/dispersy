@@ -19,13 +19,14 @@ class DelayPacket(Exception):
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, community, msg):
+    def __init__(self, community, meta, msg):
         from .community import Community
         assert isinstance(community, Community)
 
         super(DelayPacket, self).__init__(msg)
         self._delayed = None
         self._community = community
+        self._meta = meta
         self._cid = community.cid
         self._candidate = None
         self._timestamp = time()
@@ -36,6 +37,10 @@ class DelayPacket(Exception):
     @delayed.setter
     def delayed(self, delayed):
         self._delayed = delayed
+
+    @property
+    def meta(self):
+        return self._meta
 
     @property
     def candidate(self):
@@ -70,11 +75,11 @@ class DelayPacket(Exception):
 
 class DelayPacketByMissingMember(DelayPacket):
 
-    def __init__(self, community, missing_member_id):
+    def __init__(self, community, meta, missing_member_id):
         assert isinstance(missing_member_id, str)
         assert len(missing_member_id) == 20
 
-        super(DelayPacketByMissingMember, self).__init__(community, "Missing member")
+        super(DelayPacketByMissingMember, self).__init__(community, meta, "Missing member")
         self._missing_member_id = missing_member_id
 
     @property
@@ -88,10 +93,10 @@ class DelayPacketByMissingMember(DelayPacket):
 
 class DelayPacketByMissingMessage(DelayPacket):
 
-    def __init__(self, community, member, global_time):
+    def __init__(self, community, meta, member, global_time):
         assert isinstance(member, Member)
         assert isinstance(global_time, (int, long))
-        super(DelayPacketByMissingMessage, self).__init__(community, "Missing message")
+        super(DelayPacketByMissingMessage, self).__init__(community, meta, "Missing message")
         self._member = member
         self._global_time = global_time
 
@@ -117,7 +122,7 @@ class DelayMessage(DelayPacket):
 
     def __init__(self, delayed):
         assert isinstance(delayed, Message.Implementation), delayed
-        super(DelayMessage, self).__init__(delayed.community, self.__class__.__name__)
+        super(DelayMessage, self).__init__(delayed.community, delayed.meta, self.__class__.__name__)
         self._delayed = delayed
 
     def duplicate(self, delayed):
