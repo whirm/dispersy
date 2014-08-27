@@ -62,7 +62,7 @@ class TrackerDispersy(Dispersy):
 
     def start(self):
         assert isInIOThread()
-        if super(TrackerDispersy, self).start():
+        if super(TrackerDispersy, self).start(autoload_discovery=False):
             self._create_my_member()
             self._load_persistent_storage()
 
