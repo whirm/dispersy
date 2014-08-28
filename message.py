@@ -30,6 +30,7 @@ class DelayPacket(Exception):
         self._cid = community.cid
         self._candidate = None
         self._timestamp = time()
+        self._resumed = False
 
     @property
     def delayed(self):
@@ -37,6 +38,13 @@ class DelayPacket(Exception):
     @delayed.setter
     def delayed(self, delayed):
         self._delayed = delayed
+
+    @property
+    def resumed(self):
+        return self._resumed
+    @resumed.setter
+    def resumed(self, resumed):
+        self._resumed = resumed
 
     @property
     def meta(self):
