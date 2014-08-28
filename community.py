@@ -1887,6 +1887,8 @@ class Community(TaskManager):
         assert not match_info[1] or len(match_info[1]) == 20, len(match_info[1])
         assert not match_info[2] or isinstance(match_info[2], (int, long)), type(match_info[2])
         assert not match_info[3] or isinstance(match_info[3], list), type(match_info[3])
+        assert time() < delay.timestamp + 10, (time(), delay.timestamp, match_info)
+        assert not delay.resumed, match_info
 
         send_request = False
 
@@ -1930,6 +1932,7 @@ class Community(TaskManager):
         new_packets = set()
         for received_key in received_keys:
             self._logger.debug("Processing key %s", str(received_key))
+
             for key in self._delayed_key.keys():
                 if all(k is None or k == rk for k, rk in zip(key, received_key)):
                     for delayed in self._delayed_key.pop(key):
@@ -1939,6 +1942,7 @@ class Community(TaskManager):
                         if len(delayed_keys) == 0 or delayed.resume_immediately:
                             self._statistics.increase_delay_msg_count(u"success")
                             self._remove_delayed(delayed)
+                            delayed.resumed = True
 
                             if isinstance(delayed, DelayMessage):
                                 delayed_message = delayed.on_success()
@@ -1971,8 +1975,9 @@ class Community(TaskManager):
         now = time()
         for delayed in self._delayed_value.keys():
             if now > delayed.timestamp + 10:
-                self._logger.debug("Calling timeout callback for %s", delayed)
+                assert not delayed.resumed, delayed.match_info
 
+                self._logger.debug("Calling timeout callback for %s", delayed)
                 self._remove_delayed(delayed)
                 delayed.on_timeout()
 
