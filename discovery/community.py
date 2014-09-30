@@ -175,8 +175,11 @@ class DiscoveryCommunity(Community):
         alternate_addresses = Bootstrap.load_addresses_from_file(bootstrap_file)
 
         default_addresses = Bootstrap.get_default_addresses()
+        if alternate_addresses:
+            self._logger.debug("alternate addresses set")
+        else:
+            self._logger.debug("use default addresses")
         self.bootstrap = Bootstrap(alternate_addresses or default_addresses)
-
         lc = self.bootstrap.resolve_until_success(now=True, callback=on_results)
         if lc:
             self.register_task("bootstrap_resolution", lc)

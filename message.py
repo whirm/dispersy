@@ -10,7 +10,7 @@ from .meta import MetaObject
 from .member import Member
 from .payload import Payload
 from .resolution import Resolution, DynamicResolution
-
+import logging
 
 class DelayPacket(Exception):
 
@@ -451,6 +451,7 @@ class Message(MetaObject):
         self._distribution.setup(self)
         self._destination.setup(self)
         self._payload.setup(self)
+        self._logger = logging.getLogger()
 
     @property
     def community(self):

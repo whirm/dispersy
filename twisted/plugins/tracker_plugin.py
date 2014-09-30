@@ -54,7 +54,7 @@ else:
 class TrackerDispersy(Dispersy):
 
     def __init__(self, endpoint, working_directory, silent=False, crypto=NoVerifyCrypto()):
-        super(TrackerDispersy, self).__init__(endpoint, working_directory, u":memory:", crypto)
+        super(TrackerDispersy, self).__init__(endpoint, working_directory, u":memory:", crypto, load_bartercast=False)
 
         # location of persistent storage
         self._persistent_storage_filename = os.path.join(working_directory, "persistent-storage.data")

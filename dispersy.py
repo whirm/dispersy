@@ -86,7 +86,7 @@ class Dispersy(TaskManager):
     outgoing data for, possibly, multiple communities.
     """
 
-    def __init__(self, endpoint, working_directory, database_filename=u"dispersy.db", crypto=ECCrypto()):
+    def __init__(self, endpoint, working_directory, database_filename=u"dispersy.db", crypto=ECCrypto(), load_bartercast=True):
         """
         Initialise a Dispersy instance.
 
@@ -156,7 +156,7 @@ class Dispersy(TaskManager):
         self._progress_handlers = []
 
         # statistics...
-        self._statistics = DispersyStatistics(self)
+        self._statistics = DispersyStatistics(self, load_bartercast)
 
 
     @staticmethod
@@ -375,7 +375,6 @@ class Dispersy(TaskManager):
         if kargs is None:
             kargs = {}
         self._auto_load_communities[community_cls.get_classification()] = (community_cls, my_member, args, kargs)
-
         communities = []
         if load:
             for master in community_cls.get_master_members(self):
@@ -408,7 +407,22 @@ class Dispersy(TaskManager):
             self._discovery_community.new_community(community)
 
     def detach_community(self, community):
-        del self._communities[community.cid]
+        # self.backup_bartercast_statistics(self._communities[community.cid])
+        self.backup_bartercast_statistics(community)
+        # del self._communities[community.cid]
+        self._communities.pop(community.cid, None)
+
+    # bartercast accounting stuff
+    def backup_bartercast_statistics(self, community):
+        self._logger.error("merging bartercast statistics")
+        bartercast = community._statistics.bartercast
+        print "merging: %s" % bartercast
+        for k in bartercast.keys():
+            if k in self._statistics.bartercast:
+                self._statistics.bartercast[k] = dict(self._statistics.bartercast[k].items() + bartercast[k].items())
+            else:
+                self._statistics.bartercast[k] = dict(bartercast[k].items())
+        self._statistics.persist(self, "bartercast", self._statistics.bartercast, 1)
 
     def attach_progress_handler(self, func):
         assert callable(func), "handler must be callable"
@@ -571,11 +585,11 @@ class Dispersy(TaskManager):
         destination_classification = destination.get_classification()
 
         if isinstance(source, Member):
-            self._logger.debug("reclassify <unknown> -> %s", destination_classification)
+            self._logger.error("reclassify <unknown> -> %s", destination_classification)
             master = source
 
         else:
-            self._logger.debug("reclassify %s -> %s", source.get_classification(), destination_classification)
+            self._logger.error("reclassify %s -> %s", source.get_classification(), destination_classification)
             assert source.cid in self._communities
             assert self._communities[source.cid] == source
             master = source.master_member
@@ -1706,6 +1720,7 @@ ORDER BY global_time""", (meta.database_id, member_database_id)))
                 messages[0].community.statistics.increase_msg_count(u"created", messages[0].meta.name, my_messages)
 
         if forward:
+            self._logger.debug("forwarding message: %s" % messages[0].meta.name)
             return self._forward(messages)
 
         return True
@@ -1758,11 +1773,13 @@ ORDER BY global_time""", (meta.database_id, member_database_id)))
                 # CommunityDestination.node_count is allowed to be zero
                 if isinstance(meta.destination, CommunityDestination) and meta.destination.node_count > 0:
                     max_candidates = meta.destination.node_count + len(candidates)
+                    self._logger.error("in _forward: my_member %s, community: %s" % (meta.community._my_member, str(meta.community)))
                     for candidate in meta.community.dispersy_yield_verified_candidates():
                         if len(candidates) < max_candidates:
                             candidates.add(candidate)
                         else:
                             break
+                self._logger.debug("sending message to %d candidates: %s" % (len(candidates), str(candidates)))
                 result = result and self._send(tuple(candidates), [message])
         else:
             raise NotImplementedError(meta.destination)
