@@ -1,0 +1,14 @@
+[Unit]
+Description=Dispersy tracker log sync
+
+[Service]
+ProtectSystem=yes
+Type=oneshot
+
+Environment="PYTHONPATH=/opt/dispersy"
+#WorkingDirectory=/opt
+ExecStart=/usr/bin/rsync -av --exclude=.* ${HOME}/ \
+                             collector@statistics.tribler.org:/var/lib/collected_dispersy_logs/${HOSTNAME}/
+
+User=dispersy_tracker
+Group=dispersy_tracker

@@ -1,0 +1,9 @@
+[Unit]
+Description=Dispersy tracker log sync
+
+[Timer]
+OnUnitActiveSec=3600
+Unit=tracker-log-sync.service
+
+[Install]
+WantedBy=multi-user.target
