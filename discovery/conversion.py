@@ -4,6 +4,7 @@ from socket import inet_ntoa, inet_aton
 from ..message import DropPacket
 from ..conversion import BinaryConversion
 
+import logging
 
 class DiscoveryConversion(BinaryConversion):
     def __init__(self, community):
@@ -14,12 +15,20 @@ class DiscoveryConversion(BinaryConversion):
         self.define_meta_message(chr(4), community.get_meta_message(u"pong"), self._encode_pong, self._decode_pong)
 
     def _encode_similarity_request(self, message):
+        logging.error("DEBUG START -vvvvvvvvvvvvvvvvv-")
+        logging.error("ENCODE_SIM_REQ %r", message)
         preference_list = message.payload.preference_list
         peer_info = [inet_aton(message.payload.lan_address[0]), message.payload.lan_address[1],
                      inet_aton(message.payload.wan_address[0]), message.payload.wan_address[1],
                      self._encode_connection_type_map[message.payload.connection_type]]
         fmt = "!H4sH4sHB" + "20s"*len(preference_list)
+        logging.error("FMT %r", fmt)
+        logging.error("IDENT %r //// %r", message.payload.identifier, type(message.payload.identifier))
+        logging.error("PEER_INFO %r", [(str(x), type(x)) for x in peer_info])
+        logging.error("PREF_LIST %r", [(repr(x), type(x)) for x in preference_list])
+        logging.error("DEBUG END  -^^^^^^^^^^^^^^^^^-")
         packet = pack(fmt, message.payload.identifier, *(peer_info + preference_list))
+        logging.error("YAY!")
         return packet,
 
     def _decode_similarity_request(self, placeholder, offset, data):
