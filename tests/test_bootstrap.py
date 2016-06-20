@@ -2,6 +2,7 @@ from collections import defaultdict
 from copy import copy
 from os import environ, getcwd, path
 from socket import getfqdn
+from sys import platform
 from subprocess import Popen, PIPE, STDOUT
 from threading import Thread
 from time import time, sleep
@@ -9,6 +10,7 @@ from unittest import skip, skipUnless
 import logging
 
 from nose.twistedtools import reactor
+from nose.plugins.skip import SkipTest
 from twisted.internet.defer import Deferred, inlineCallbacks, returnValue
 from twisted.internet.task import deferLater
 
@@ -33,6 +35,8 @@ class TestBootstrapServers(DispersyTestFunc):
         """
         Runs tracker.py and connects to it.
         """
+        if platform == "win32":
+            raise SkipTest
 
         # we want to spawn the tracker from the dispersy parent dir to work around the crazy relative import stuff.
         # .../dispersy/test/test_bootstrap.py
