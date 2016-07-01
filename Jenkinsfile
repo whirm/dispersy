@@ -272,6 +272,7 @@ parallel "Checkout Tribler without dispersy": {
       // TODO: this shouldn't be necessary, but the git plugin gets really confused
       // if a submodule's remote changes.
       sh 'git submodule update --init --recursive'
+      sh 'sed -i s/asdfasdf// tests/__init__.py' // Unbreak the tests
     }
     // TODO: For some reason it's impossible to stash any .git file, so work around it.
     sh 'tar cpf dispersy.tar dispersy'
