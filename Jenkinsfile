@@ -353,8 +353,12 @@ if (! skipExperiments) {
     deleteDir()
     unstashAll()
     stash "experiment_workdir"
-    withEnv(['EXPERIMENT_CONF=gumby/experiments/dispersy/allchannel.conf']){
-      load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
+    try {
+      Env(['EXPERIMENT_CONF=gumby/experiments/dispersy/allchannel.conf']){
+        load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
+      }
+    } finally {
+      archive 'output/**'
     }
   }
 }
