@@ -354,7 +354,7 @@ if (! skipExperiments) {
     unstashAll()
     stash "experiment_workdir"
     try {
-      Env(['EXPERIMENT_CONF=gumby/experiments/dispersy/allchannel.conf']){
+      withEnv(['EXPERIMENT_CONF=gumby/experiments/dispersy/allchannel.conf']){
         load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
       }
     } finally {
