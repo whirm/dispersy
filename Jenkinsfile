@@ -108,7 +108,7 @@ def gitCheckout(url, branch, targetDir=''){
 }
 
 def checkoutGumby() {
-  gitCheckout('https://github.com/tribler/gumby.git', '*/devel')
+  gitCheckout('https://github.com/whirm/gumby.git', '*/jenkins')
 }
 
 def unstashAll() {
