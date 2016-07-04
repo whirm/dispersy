@@ -358,6 +358,7 @@ if (! skipExperiments) {
         load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
       }
     } finally {
+      echo "XXXXXXXXX"
       archive '**'
     }
   }
