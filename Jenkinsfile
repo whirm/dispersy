@@ -41,7 +41,7 @@ def change_author
 
 //////////////////
 def failFast = true
-def skipTests = false
+def skipTests = true
 def skipExperiments = false
 //////////////////
 
