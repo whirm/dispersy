@@ -358,7 +358,7 @@ if (! skipExperiments) {
         load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
       }
     } finally {
-      archive 'output/**'
+      archive '**'
     }
   }
 }
