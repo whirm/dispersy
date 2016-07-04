@@ -33,7 +33,7 @@
 #
 
 # Code:
-asdfasdf
+# asdfasdf
 import sys
 
 # Do not (re)move the reactor import, even if we aren't using it

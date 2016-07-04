@@ -41,10 +41,11 @@ def change_author
 
 //////////////////
 def failFast = true
-def skipTests = true
+def skipTests = false
 def skipExperiments = false
 //////////////////
 
+def jobFailed = false
 
 stage "Verify author"
 
@@ -71,7 +72,11 @@ if (power_users.contains(change_author)) {
   changeGHStatus('Job execution approved, going forth!')
 }
 
-
+node {
+  deleteDir()
+  sh "touch allstashes.txt"
+  stash includes: "allstashes.txt", name: "allstashes.txt"
+}
 
 
 def gitCheckout(url, branch, targetDir=''){
@@ -117,6 +122,7 @@ def unstashAll() {
   dir('tribler/Tribler/'){
     unstashDispersy()
   }
+  echo "unstash all succeeded"
 }
 
 def unstashDispersy() {
@@ -130,25 +136,57 @@ def runTestsAndStash(testRunner, stashName) {
     testRunner()
   } finally {
     stash includes: 'output/**', name: "${stashName}"
+
+    unstash "allstashes.txt"
+    sh "echo ${stashName} >> allstashes.txt"
+    // def allStashes = readFile("allstashes.txt").split('\n')
+    // println "r1"
+    // println "${allStashes} ${stashName}"
+    // println "r2"
+    // allStashes.add("${stashName}".toString())
+    // println "r3"
+    // println "${allStashes}"
+    // writeFile file: 'allstashes.txt', text: allStashes.join("\n")
+    stash includes: "allstashes.txt", name: "allstashes.txt"
   }
 }
 
 def unstashAllResults() {
+  unstash "allstashes.txt"
+  def allStashes = readFile("allstashes.txt").split('\n')
   dir('output'){
-    dir('dispersy_osx_results'){
-      unstash 'dispersy_osx_results'
-    }
-    dir('dispersy_win32_results'){
-      unstash 'dispersy_win32_results'
-    }
-    dir('dispersy_results'){
-      unstash 'dispersy_results'
-    }
-    dir('dispersy_tribler_results'){
-      unstash 'dispersy_tribler_results'
+    for (int i = 0; i < allStashes.size(); i++) {
+
+      def stash = allStashes[i]
+      if (stash != "") {
+        echo "Unstashing '${stash}'"
+        unstash stash
+      }
+
     }
   }
 }
+
+
+// def fakeTestRun = {
+//   sh '''mkdir output
+// cd output
+// echo date > file.txt
+// touch "$(date)"
+// '''
+// }
+
+// node {
+//   deleteDir()
+//   runTestsAndStash(fakeTestRun, "this_is_a_name")
+//   deleteDir()
+//   runTestsAndStash(fakeTestRun, "this_is_a_name_too")
+//   deleteDir()
+//   unstashAllResults()
+//   sh "ls -lR"
+//   sh "exit 1"
+// }
+
 
 def runDispersyTestsOnOSX = {
   deleteDir()
@@ -242,6 +280,90 @@ gumby/run.py gumby/experiments/tribler/run_all_tests_parallel.conf
 '''
 }
 
+def runAllChannelExperiment = {
+  deleteDir()
+  unstashAll()
+  stash includes: '**', name: "experiment_workdir"
+  echo "stashed XXXXXXX"
+  try {
+    runOnFreeCluster('gumby/experiments/dispersy/allchannel.conf')
+  } finally {
+    dir('output'){
+      unstash 'experiment_results'
+    }
+  }
+}
+
+def runOnFreeCluster(experimentConf){
+  //def experimentConf = env.EXPERIMENT_CONF
+  // stage 'Checkout gumby'
+  // checkoutGumby()
+
+  stage 'Find a free cluster'
+
+  sh "ls -l"
+
+  def experimentName
+  def clusterName
+  node('master') {
+    echo "Reading ${experimentConf}"
+
+    def confFile = readFile(experimentConf).replaceAll(/#.*/,"")
+    // This stopped working after some jenkins update, no error, no exception,
+    // the rest of the node {} gets skipped and it goes on as if nothing
+    // happened.
+    // def configObject = new ConfigSlurper().parse(confFile) def
+    // neededNodes = configObject.das4_node_amount
+    // experimentName = configObject.experiment_name configObject = null
+
+    def getNodes = {
+      def matcher = confFile =~ 'das4_node_amount.*= *(.+)'
+      matcher[0][1]
+    }
+
+    def getExperimentName = {
+      def matcher = confFile =~ 'experiment_name.*= *(.+)'
+      matcher[0][1]
+    }
+
+    neededNodes = getNodes()
+    experimentName = getExperimentName()
+
+    try {
+      neededNodes = "${NODES}"
+    } catch (groovy.lang.MissingPropertyException err) {
+      echo "NODES env var not passed, using config file value"
+    }
+
+    sh "gumby/scripts/find_free_cluster.sh ${neededNodes}"
+    clusterName = readFile('cluster.txt')
+  }
+
+  stage "Run ${experimentName}"
+
+  node(clusterName) {
+    try {
+
+      unstash "experiment_workdir"
+
+      // stage 'Check out Gumby'
+      // checkoutGumby()
+
+      // stage 'Check out Tribler'
+      // gitCheckout('https://github.com/Tribler/tribler.git', '*/devel')
+
+      sh """
+gumby/scripts/build_virtualenv.sh
+source ~/venv/bin/activate
+
+./gumby/run.py ${experimentConf}
+"""
+    } finally {
+      stash includes: 'output/**', name: 'experiment_results'
+    }
+  }
+}
+
 stage "Checkout"
 
 parallel "Checkout Tribler without dispersy": {
@@ -278,9 +400,7 @@ parallel "Checkout Tribler without dispersy": {
     sh 'tar cpf dispersy.tar dispersy'
     stash includes: 'dispersy.tar', name: 'dispersy'
   }
-},
-failFast: failFast
-
+}, failFast: failFast
 
 stage "Tests"
 try {
@@ -304,18 +424,20 @@ try {
       node("win32") {
         runTestsAndStash(runDispersyTestsOnWindows32, 'dispersy_win32_results')
       }
-    },
-                    failFast: failFast
+    }, failFast: failFast
   }
+} catch (all) {
+  jobFailed = true
+  throw all
 } finally {
-  // stage "Publish test results"
   if (! skipTests) {
     node {
       deleteDir()
-      sh 'mkdir -p output/dispersy_osx_results'
       unstashAllResults()
-      archive '**' // TODO: This should be done only in case of failure, the actual archiving should be done at the very end.
       step([$class: 'JUnitResultArchiver', testResults: '**/*nosetests.xml'])
+      if (jobFailed) {
+        archive '**'
+      }
       // step([$class: 'JUnitResultArchiver',
       //       testDataPublishers: [[$class: 'TestDataPublisher']],
       //       healthScaleFactor: 1000,
@@ -347,21 +469,21 @@ diff-cover `find $OUTPUT/.. -iname coverage.xml` --compare-branch origin/$CHANGE
   }
 }
 
-//stage "Experiments"
-if (! skipExperiments) {
-  node('master') {
-    deleteDir()
-    unstashAll()
-    stash "experiment_workdir"
-    try {
-      withEnv(['EXPERIMENT_CONF=gumby/experiments/dispersy/allchannel.conf']){
-        load "gumby/scripts/jenkins/run_experiment_in_free_cluster.groovy"
-      }
-    } finally {
-      echo "XXXXXXXXX"
-      unstash 'experiment_results'
-      archive '**'
+// stage "Experiments"
+try {
+  if (! skipExperiments) {
+    node('master') {
+      runTestsAndStash(runAllChannelExperiment, 'allchannel_results')
     }
+  }
+} finally {
+  node('master'){
+    echo "??????"
+    unstashAllResults()
+    echo "!!!!!!"
+    // TODO: Archival should happen only once after everything runs or when something fails
+    archive '**'
+    echo "000000"
   }
 }
 
