@@ -434,10 +434,10 @@ try {
     node {
       deleteDir()
       unstashAllResults()
-      step([$class: 'JUnitResultArchiver', testResults: '**/*nosetests.xml'])
       if (jobFailed) {
         archive '**'
       }
+      step([$class: 'JUnitResultArchiver', testResults: '**/*nosetests.xml'])
       // step([$class: 'JUnitResultArchiver',
       //       testDataPublishers: [[$class: 'TestDataPublisher']],
       //       healthScaleFactor: 1000,
