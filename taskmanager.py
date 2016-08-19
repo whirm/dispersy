@@ -76,6 +76,7 @@ class TaskManager(object):
                     for task in self._pending_tasks.itervalues()]), self._pending_tasks
 
         for name in self._pending_tasks.keys():
+            print "XXX", name, self._pending_tasks.get(name, "MISSING")
             self.cancel_pending_task(name)
 
     def is_pending_task_active(self, name):
