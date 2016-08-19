@@ -22,9 +22,10 @@ summary_logger = logging.getLogger("test-overlay-summary")
 
 class TestOverlay(DispersyTestFunc):
 
+    @blocking_call_on_reactor_thread
+    @inlineCallbacks
     def setUp(self):
-        super(DispersyTestFunc, self).setUp()
-
+        yield super(DispersyTestFunc, self).setUp()
         self.dispersy_objects = []
 
     @skipUnless(environ.get("TEST_OVERLAY_ALL_CHANNEL") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")

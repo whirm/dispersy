@@ -20,6 +20,8 @@ from ..endpoint import ManualEnpoint
 from ..util import blockingCallFromThread
 from .debugcommunity.community import DebugCommunity
 from .debugcommunity.node import DebugNode
+from Tribler.dispersy.util import blocking_call_on_reactor_thread
+from twisted.internet.defer import Deferred, inlineCallbacks
 
 
 # use logger.conf if it exists
@@ -39,8 +41,10 @@ class DispersyTestFunc(TestCase):
     def on_callback_exception(self, exception, is_fatal):
         return True
 
+    @blocking_call_on_reactor_thread
+    @inlineCallbacks
     def setUp(self):
-        super(DispersyTestFunc, self).setUp()
+        yield super(DispersyTestFunc, self).setUp()
 
         self.dispersy_objects = []
 

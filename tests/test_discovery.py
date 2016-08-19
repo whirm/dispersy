@@ -7,10 +7,12 @@ import time
 
 class TestDiscovery(DispersyTestFunc):
 
+
+    @blocking_call_on_reactor_thread
+    @inlineCallbacks
     def setUp(self):
-        while _DEFAULT_ADDRESSES:
-            _DEFAULT_ADDRESSES.pop()
-        super(TestDiscovery, self).setUp()
+        _DEFAULT_ADDRESSES.clear()
+        yield super(TestDiscovery, self).setUp()
 
     def test_overlap(self):
         def get_preferences():
